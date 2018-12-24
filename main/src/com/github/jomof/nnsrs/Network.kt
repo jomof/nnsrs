@@ -1,5 +1,7 @@
 package com.github.jomof.nnsrs
 
+import java.util.*
+
 /**
  * values -
  *   Not necessarily rectangular.
@@ -80,6 +82,23 @@ class Network(
             }
         }
         return outputs()
+    }
+
+    fun randomize() {
+        val random = Random()
+        values.forEach { layer ->
+            (0 until layer.size).onEach { node ->
+                layer[node] = random.nextDouble()
+            }
+        }
+        (0 until biases.size).forEach { layer ->
+            biases[layer] = random.nextDouble()
+        }
+        weights.forEach { layerWeights ->
+            (0 until layerWeights.height()).zip(0 until layerWeights.width()).forEach { (x,y) ->
+                layerWeights[x][y] = random.nextDouble()
+            }
+        }
     }
 
     companion object {

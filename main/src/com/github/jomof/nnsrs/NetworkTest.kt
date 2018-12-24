@@ -39,7 +39,7 @@ class NetworkTest {
                  0.85
         """.trimIndent().toMatrix()
         val network = Network.fromValues(values)
-        val forward = network.feedForward(arrayOf(1.0,2.0))
+        val forward = network.feedForward(arrayOf(1.0, 2.0))
     }
 
 
@@ -63,10 +63,9 @@ class NetworkTest {
                0.0
         """.trimIndent().toMatrix()
         val biases = arrayOf(0.0)
-        val weights = arrayOf(
-                """
-                    1.0
-                """.trimIndent().toMatrix()
+        val weights = arrayOf("""
+                1.0
+            """.trimIndent().toMatrix()
         )
         val network = Network(values, biases, weights)
         val forward = network.feedForward(arrayOf(2.0))
@@ -74,5 +73,23 @@ class NetworkTest {
         assert(forward[0] > 0.8 && forward[0] < 0.9) {
             "Was ${forward[0]}"
         }
+    }
+
+    @Test
+    fun actorSimulated() {
+            val values = """
+            1.0 1.0 1.0 1.0 1.0 1.0
+            0.0 0.0 0.0 0.0 0.0 0.0
+            0.85
+        """.trimIndent().toMatrix()
+            val network = Network.fromValues(values)
+            network.randomize()
+            val bigSample = inputsWindow(sampleDumbActorInteraction()).take(100000).toMutableList()
+            bigSample.shuffle()
+            bigSample.forEach { window ->
+                val input = window.take(6).toTypedArray()
+                val guess = network.feedForward(input)[0]
+                println("${input.toList()} = $guess")
+            }
     }
 }
