@@ -115,28 +115,39 @@ class NetworkTest {
 
     @Test
     fun actorSimulated() {
-        val nodeCounts = arrayOf(9, 9, 32, 1)
+        val nodeCounts = arrayOf(10, 15, 1)
         val network = Network.fromNodeCounts(nodeCounts)
         val bigSample = inputsWindow(sampleDumbActorInteraction()).take(10000).toMutableList()
-        fun doubleOf(boolean : Boolean) : Double = if (boolean) 0.66 else 0.33
+        fun doubleOf(boolean : Boolean) : Double = if (boolean) 1.0 else 0.0
         val inputs = bigSample.map { window ->
             val now = window[0].day
             val totalCorrect = window[1].totalCorrect.toDouble()
             val totalIncorrect = window[1].totalIncorrect.toDouble()
-            val pctCorrect = totalCorrect / (totalCorrect / totalIncorrect)
+            val pctCorrect = (1.0 + totalCorrect) / (1.0 + totalCorrect / totalIncorrect)
             val t1 = now - window[1].day
             val a1 = doubleOf(window[1].correct)
             val t2 = now - window[2].day
             val a2 = doubleOf(window[2].correct)
             val t3 = now - window[3].day
             val a3 = doubleOf(window[3].correct)
-            vectorOf(totalCorrect, totalIncorrect, pctCorrect, t1, a1, t2, a2, t3, a3)
+            val t4 = now - window[4].day
+            val a4 = doubleOf(window[4].correct)
+            val t5 = now - window[5].day
+            val a5 = doubleOf(window[5].correct)
+            //vectorOf(t1, t2, t3, t4, t5)
+            //vectorOf(a1, t1 /*, a2, t2, a3, t3, a4, t4, a5, t5 */)
+            //vectorOf(a1, t1, a2, t2, a3, a4, a5)
+            //vectorOf(totalCorrect)
+            val result = vectorOf(t1, a1, t2, a2, t3, a3, t4, a4, t5, a5)
+            result
         }
         val answers = bigSample.map { window ->
-            vectorOf(doubleOf(window.last().correct))
+            vectorOf(doubleOf(window[0].correct))
         }
         val data = inputs.zip(answers).toList()
-        network.train(data, 0.01, 1000000, 50)
+        network.train(data, 1.0, 500000, 50)
+        val cost = network.costBool(data)
+        println("Costbool = $cost")
 
 //            1.0 1.0 1.0 1.0 1.0 1.0
 //            0.0 0.0 0.0 0.0 0.0 0.0

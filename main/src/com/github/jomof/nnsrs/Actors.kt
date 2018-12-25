@@ -58,8 +58,8 @@ class DumbActor {
 }
 
 fun sampleDumbActorInteraction(): Sequence<Interaction> {
-    val itemCount = 10
-    val chanceOfCorrectGuess = 0.9
+    val itemCount = 100
+    val chanceOfCorrectGuess = 0.5
     val maxInteractions = 200000000
     val itemBatches = 10 * 3
     val actor = DumbActor()
@@ -82,7 +82,7 @@ fun sampleDumbActorInteraction(): Sequence<Interaction> {
 }
 
 fun inputsWindow(interactions: Sequence<Interaction>): Sequence<List<Interaction>> {
-    val samplesPerWindow = 4
+    val samplesPerWindow = 6
     return interactions.windowed(samplesPerWindow)
             .filter { window -> window.map { it.item }.toSet().size == 1 }
             .map { it.reversed() }

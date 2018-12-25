@@ -71,6 +71,7 @@ class Network(
                 diff * diff
             }
         } / (2.0 * sampleSize)
+        return 0.0
     }
 
     fun costBool(trainingData : List<Pair<Vector, Vector>>) : Double {
@@ -82,30 +83,33 @@ class Network(
         }
         val outputsSize = nodeCounts[nodeCounts.size - 1]
         val sampleSize = samples.size
-        return (0 until sampleSize).sumByDouble { index ->
+        var correct = 0
+        var total = 0
+        (0 until sampleSize).onEach { index ->
             val sample = samples[index]
             val answer = answers[index]
             val output: Vector = feedforward(sample)
-            (0 until outputsSize).sumByDouble { outputIndex ->
+            (0 until outputsSize).onEach { outputIndex ->
                 val out: Double = output[outputIndex]
                 val ans: Double = answer[outputIndex]
                 val ab = ans > 0.5
                 val ao = out > 0.5
-                val diff = if (ab == ao) 0.0 else out - ans
-                diff * diff
+                ++total
+                correct += if (ab == ao) 1 else 0
             }
-        } / (2.0 * sampleSize)
+        }
+        return (0.0 + total - correct) / (0.0 + total)
     }
 
     fun train(trainingData : List<Pair<Vector, Vector>>, eta : Double, epochs: Int, mini_batch_size: Int) {
         val td = trainingData.toMutableList()
         val n = trainingData.size
         val numOfMiniBatches = n / mini_batch_size
-        val x1 = weights[0][0][0]
         val startingCost = cost(trainingData)
-        println("Starting cost = $startingCost")
+        val startingCostBool = costBool(trainingData)
+        println("Starting costBool = $startingCostBool, cost = $startingCost")
+        var lastNow = System.currentTimeMillis()
         for (i in 0 until epochs) {
-            val x2 = weights[0][0][0]
             td.shuffle()
             var start = 0
 
@@ -116,10 +120,12 @@ class Network(
                 start += mini_batch_size
                 j += mini_batch_size
             }
-            val x3 = weights[0][0][0]
-            val cost = cost(trainingData)
-            val costBool = costBool(trainingData)
-            println("Epoch $i complete, costBool = $costBool, cost = $cost")
+            if ((i % 2001) == 2001 || (System.currentTimeMillis() - lastNow) > 5000) {
+                val cost = cost(trainingData)
+                val costBool = costBool(trainingData)
+                println("Epoch $i complete, costBool = $costBool, cost = $cost")
+                lastNow = System.currentTimeMillis()
+            }
         }
         println("Training Complete")
     }
