@@ -4,78 +4,6 @@ import org.junit.Test
 import java.lang.Math.abs
 
 class NetworkTest {
-//
-//    @Test
-//    fun simpleInitialize() {
-//        Network.fromNodeCounts(listOf(5, 4, 3, 2, 1))
-//        Network.fromNodeCounts(listOf(1))
-//    }
-//
-//    @Test
-//    fun zero() {
-//        Network.fromNodeCounts(listOf(0))
-//    }
-//
-//    @Test
-//    fun fromValues() {
-//        val values = """
-//            1.00 0.84 0.90
-//            1.00 0.89 0.89
-//            2.00 0.89 0.93
-//            0.00 0.93 0.96
-//            0.50 0.95 0.97
-//            0.85
-//        """.trimIndent().toMatrix()
-//        Network.fromValues(values)
-//    }
-//
-//    @Test
-//    fun feedForward() {
-//        val values = """
-//               1.00 0.84
-//            1.00 0.89 0.89
-//                 0.89
-//               0.00 0.93
-//            0.50 0.95 0.97
-//                 0.85
-//        """.trimIndent().toMatrix()
-//        val network = Network.fromValues(values)
-//        val forward = network.feedForward(arrayOf(1.0, 2.0))
-//    }
-//
-//
-//    @Test
-//    fun simplest() {
-//        val values = """
-//               1.00
-//        """.trimIndent().toMatrix()
-//        val network = Network.fromValues(values)
-//        val forward = network.feedForward(arrayOf(2.0))
-//        assert(forward.size == 1)
-//        assert(forward[0] == 2.0) {
-//            "Was $forward"
-//        }
-//    }
-//
-//    @Test
-//    fun twoLayers() {
-//        val values = """
-//               1.0
-//               0.0
-//        """.trimIndent().toMatrix()
-//        val biases = arrayOf(0.0)
-//        val weights = arrayOf("""
-//                1.0
-//            """.trimIndent().toMatrix()
-//        )
-//        val network = Network(values, biases, weights)
-//        val forward = network.feedForward(arrayOf(2.0))
-//        assert(forward.size == 1)
-//        assert(forward[0] > 0.8 && forward[0] < 0.9) {
-//            "Was ${forward[0]}"
-//        }
-//    }
-
     @Test
     fun trainLine() {
         val nodeCounts = arrayOf(1, 1)
@@ -85,8 +13,8 @@ class NetworkTest {
         fun f(x : Double) = sigmoid(m * x + b)
         val inputs = listOf(-1.0, 1.0)
         val data = inputs.map { Pair(vectorOf(it), vectorOf(f(it))) }
-        network.train(data, 1.0, 100, 1)
-        val cost = network.cost(data)
+        network.train(data, 1.0, 100, 1, reportBoolCost(network, data))
+        val cost = cost(network, data)
         if (abs(cost) > 0.0001) throw RuntimeException()
     }
 
@@ -108,16 +36,16 @@ class NetworkTest {
                 Pair(it, vectorOf(0.66))
             }
         }
-        network.train(data, 1.0, 1000, 4)
-        val cost = network.cost(data)
+        network.train(data, 1.0, 3000, 4, reportBoolCost(network, data))
+        val cost = costBool(network, data)
         if (abs(cost) > 0.0001) throw RuntimeException()
     }
 
     @Test
     fun actorSimulated() {
-        val nodeCounts = arrayOf(10, 15, 1)
+        val nodeCounts = arrayOf(10, 20, 1)
         val network = Network.fromNodeCounts(nodeCounts)
-        val bigSample = inputsWindow(sampleDumbActorInteraction()).take(10000).toMutableList()
+        val bigSample = inputsWindow(sampleDumbActorInteraction()).take(1000).toMutableList()
         fun doubleOf(boolean : Boolean) : Double = if (boolean) 1.0 else 0.0
         val inputs = bigSample.map { window ->
             val now = window[0].day
@@ -145,8 +73,8 @@ class NetworkTest {
             vectorOf(doubleOf(window[0].correct))
         }
         val data = inputs.zip(answers).toList()
-        network.train(data, 1.0, 500000, 50)
-        val cost = network.costBool(data)
+        network.train(data, 1.0, 5000, 50, reportBoolCost(network, data))
+        val cost = costBool(network, data)
         println("Costbool = $cost")
 
 //            1.0 1.0 1.0 1.0 1.0 1.0
