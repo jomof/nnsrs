@@ -48,11 +48,10 @@ class Network(
                 nablaBiases = biases.map { biases -> biases.toZeroes() },
                 nablaWeights = weights.map { matrix -> matrix.toZeroes() }.toTypedArray(),
                 inputs = nodeCounts.drop(1).map { count -> vectorOfSize(count) }.toTypedArray(),
-                activations = nodeCounts.map { count -> vecToMatrix(vectorOfSize(count)) }.toTypedArray())
+                activations = nodeCounts.map { count -> vectorOfSize(count) }.toTypedArray())
         report()
         for (i in 0 until epochs) {
             td.shuffle()
-            var w = 0
             td.windowed(batchSize, batchSize, true) { batch ->
                 updateBatch(batch, eta, state)
             }
@@ -97,110 +96,87 @@ class Network(
             val nablaBiases : Matrix,
             val nablaWeights : Array<Matrix>,
             val inputs: Array<Vector>,
-            val activations : Array<Matrix>
-    ) {
-
-    }
+            val activations : Array<Vector>
+    )
 
     private fun backPropagate(
             activation: Vector,
             output: Vector,
             state : PropState) {
         with(state) {
-            nablaBiases *= 0.0
-            nablaWeights.forEach { matrix -> matrix *= 0.0 }
 
-            writeIntoMatrix(activations[0], activation)
-
-            for (i in 0 until layerCount) {
-                forwardPropagate(
-                        state,
-                        i,
-                        weights[i],
-                        biases[i])
+            // Forward propagate
+            copyInto(state.activations[0], activation)
+            for (layer in 0 until layerCount) {
+                val inputs = state.inputs[layer]
+                val activationsOut = state.activations[layer + 1]
+                val activations = state.activations[layer]
+                val weights = weights[layer]
+                val biases = biases[layer]
+                for (j in 0 until weights.height) {
+                    var sum = 0.0
+                    for (k in 0 until weights.width) {
+                        sum += weights[j][k] * activations[k]
+                    }
+                    val result = sum + biases[j]
+                    inputs[j] = sigmoidPrime(result)
+                    activationsOut[j] = sigmoid(result)
+                }
             }
 
-            //compute error of last layer
-            writeIntoVec(nablaBiases[nablaBiases.size - 1], activations[activations.size - 1])
-            nablaBiases[nablaBiases.size - 1] -= output
-            nablaBiases[nablaBiases.size - 1] *= inputs[inputs.size - 1]
-            mult(
-                    nablaWeights[nablaWeights.size - 1],
-                    nablaBiases[nablaBiases.size - 1],
-                    activations[activations.size - 2])
+            // Backward propagate
+            copyInto(nablaBiases[layerCount - 1], activations[layerCount])
+            nablaBiases[layerCount - 1] -= output
+            nablaBiases[layerCount - 1] *= inputs[layerCount - 1]
 
-            for (L in 2 until nodeCounts.size) {
-                updateDelta(
-                        nablaBiases[nablaBiases.size - L],
-                        nablaBiases[nablaBiases.size - L + 1],
-                        weights[weights.size - L + 1],
-                        inputs[inputs.size - L])
-                mult(
-                        nablaWeights[nablaWeights.size - L],
-                        nablaBiases[nablaBiases.size - L],
-                        activations[activations.size - L - 1])
+            for (backwardLayer in 1 until nodeCounts.size) {
+                val layer = layerCount - backwardLayer
+                val nb = nablaBiases[layer]
+                val nw = nablaWeights[layer]
+                val activations = activations[layer]
+                if (backwardLayer > 1) {
+                    updateNablaBiases(
+                            nablaBiases = nb,
+                            nablaBiasesPrior = nablaBiases[layer + 1],
+                            weights = weights[layer + 1],
+                            inputs = inputs[layer])
+                }
+                updateNablaWeights(
+                        nablaWeights = nw,
+                        nablaBiases = nb,
+                        activations = activations)
             }
         }
     }
 
-    fun writeIntoMatrix(matrix : Matrix, vector : Vector) {
-        for (i in 0 until vector.size) {
-            matrix[i][0] = vector[i]
-        }
-    }
 
-    fun writeIntoVec(target : Vector, source : Matrix) {
+    private fun copyInto(target : Vector, source : Vector) {
         for (i in 0 until target.size) {
-            target[i] = source[i][0]
+            target[i] = source[i]
         }
     }
 
-    fun forwardPropagate(
-            thiz : PropState,
-            layer : Int,
-            weights : Matrix,
-            biases : Vector) {
-        val inputs = thiz.inputs[layer]
-        val activationsOut = thiz.activations[layer + 1]
-        val activations = thiz.activations[layer]
-        for (i in 0 until weights.height) {
-            var sum = 0.0
-            for (k in 0 until weights.width) {
-                sum += weights[i][k] * activations[k][0]
-            }
-            val result = sum + biases[i]
-            inputs[i] = sigmoidPrime(result)
-            activationsOut[i][0] = sigmoid(result)
-        }
-    }
-
-    private fun mult(weights : Matrix, delta: Vector, right: Matrix) {
-        for (i in 0 until delta.size) {
-            val vec = weights[i]
-            for (j in 0 until right.height) {
-                vec[j] = delta[i] * right[j][0]
+    private fun updateNablaWeights(nablaWeights : Matrix, nablaBiases: Vector, activations: Vector) {
+        for (i in 0 until nablaBiases.size) {
+            val vec = nablaWeights[i]
+            for (j in 0 until activations.size) {
+                vec[j] = nablaBiases[i] * activations[j]
             }
         }
     }
 
-    fun updateDelta(biases : Vector, delta : Vector, weights : Matrix, sp : Vector) {
+    private fun updateNablaBiases(nablaBiases : Vector, nablaBiasesPrior : Vector, weights : Matrix, inputs : Vector) {
         for (i in 0 until weights.width) {
             var sum = 0.0
             for (j in 0 until weights.height) {
-                sum += weights[j][i] * delta[j]
+                sum += weights[j][i] * nablaBiasesPrior[j]
             }
-            biases[i] = sum * sp[i]
+            nablaBiases[i] = sum * inputs[i]
         }
     }
     private fun sigmoidPrime(value : Double) : Double {
         val s = sigmoid(value)
         return s * (1.0 - s)
-    }
-
-    private fun sigmoidPrime(z : Matrix) : Vector {
-        return Vector(DoubleArray(z.size) { i ->
-            sigmoidPrime(z[i][0])
-        })
     }
 
     companion object {
