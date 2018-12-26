@@ -45,10 +45,10 @@ class NetworkTest {
 
     @Test
     fun actorSimulated() {
-        val nodeCounts = arrayOf(10, 20, 1)
+        val nodeCounts = arrayOf(10, 20, 10, 1)
         val network = Network.fromNodeCounts(nodeCounts)
         val bigSample = inputsWindow(sampleDumbActorInteraction()).take(10000).toMutableList()
-        fun doubleOf(boolean : Boolean) : Double = if (boolean) 1.0 else 0.0
+        fun doubleOf(boolean : Boolean) : Double = if (boolean) .66 else .33
         val inputs = bigSample.map { window ->
             val now = window[0].day
             val t1 = now - window[1].day
@@ -68,20 +68,8 @@ class NetworkTest {
             vectorOf(doubleOf(window[0].correct))
         }
         val data = inputs.zip(answers).toList()
-        network.train(data, 1.0, 500000, 500, reportBoolCost(network, data))
+        network.train(data, 1.0, 5000000, 500, reportBoolCost(network, data))
         val cost = costBool(network, data)
         println("Costbool = $cost")
-
-//            1.0 1.0 1.0 1.0 1.0 1.0
-//            0.0 0.0 0.0 0.0 0.0 0.0
-//            0.85
-//        """.trimIndent().toMatrix()
-//        val network = Network.fromValues(values)
-//        network.randomize()
-
-//        bigSample.shuffle()
-
-//        val cost = network.cost(inputs, answers)
-//        println("cost = $cost")
     }
 }

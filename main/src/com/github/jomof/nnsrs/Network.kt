@@ -100,17 +100,17 @@ class Network(
     )
 
     private fun backPropagate(
-            activation: Vector,
+            input: Vector,
             output: Vector,
             state : PropState) {
         with(state) {
 
             // Forward propagate
-            copyInto(state.activations[0], activation)
+            copyInto(activations[0], input)
             for (layer in 0 until layerCount) {
-                val inputs = state.inputs[layer]
-                val activationsOut = state.activations[layer + 1]
-                val activations = state.activations[layer]
+                val inputs = inputs[layer]
+                val activationsOut = activations[layer + 1]
+                val activations = activations[layer]
                 val weights = weights[layer]
                 val biases = biases[layer]
                 for (j in 0 until weights.height) {
@@ -174,6 +174,7 @@ class Network(
             nablaBiases[i] = sum * inputs[i]
         }
     }
+
     private fun sigmoidPrime(value : Double) : Double {
         val s = sigmoid(value)
         return s * (1.0 - s)
