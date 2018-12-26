@@ -27,4 +27,5 @@ class Vector(val vec : DoubleArray) {
 }
 
 fun vectorOf(vararg args : Double) : Vector = Vector(args.map { it }.toDoubleArray())
+fun vectorOfSize(size : Int) = Vector(DoubleArray(size) { 0.0 } )
 

@@ -31,21 +31,21 @@ class NetworkTest {
             val left = it[0] > 0
             val right = it[1] > 0
             if (left xor right) {
-                Pair(it, vectorOf(0.33))
-            } else {
                 Pair(it, vectorOf(0.66))
+            } else {
+                Pair(it, vectorOf(0.33))
             }
         }
         do {
             network.train(data, 1.0, 500, 2, reportBoolCost(network, data))
-        } while (cost(network, data) > 0.001)
+        } while (cost(network, data) > 0.00001)
         val cost = costBool(network, data)
         if (abs(cost) > 0.0001) throw RuntimeException()
     }
 
     @Test
     fun actorSimulated() {
-        val nodeCounts = arrayOf(10, 12, 1)
+        val nodeCounts = arrayOf(10, 20, 1)
         val network = Network.fromNodeCounts(nodeCounts)
         val bigSample = inputsWindow(sampleDumbActorInteraction()).take(10000).toMutableList()
         fun doubleOf(boolean : Boolean) : Double = if (boolean) 1.0 else 0.0
