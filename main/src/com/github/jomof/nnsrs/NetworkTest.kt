@@ -36,22 +36,21 @@ class NetworkTest {
                 Pair(it, vectorOf(0.66))
             }
         }
-        network.train(data, 1.0, 3000, 4, reportBoolCost(network, data))
+        do {
+            network.train(data, 1.0, 500, 2, reportBoolCost(network, data))
+        } while (cost(network, data) > 0.001)
         val cost = costBool(network, data)
         if (abs(cost) > 0.0001) throw RuntimeException()
     }
 
     @Test
     fun actorSimulated() {
-        val nodeCounts = arrayOf(10, 20, 1)
+        val nodeCounts = arrayOf(10, 12, 1)
         val network = Network.fromNodeCounts(nodeCounts)
-        val bigSample = inputsWindow(sampleDumbActorInteraction()).take(1000).toMutableList()
+        val bigSample = inputsWindow(sampleDumbActorInteraction()).take(10000).toMutableList()
         fun doubleOf(boolean : Boolean) : Double = if (boolean) 1.0 else 0.0
         val inputs = bigSample.map { window ->
             val now = window[0].day
-            val totalCorrect = window[1].totalCorrect.toDouble()
-            val totalIncorrect = window[1].totalIncorrect.toDouble()
-            val pctCorrect = (1.0 + totalCorrect) / (1.0 + totalCorrect / totalIncorrect)
             val t1 = now - window[1].day
             val a1 = doubleOf(window[1].correct)
             val t2 = now - window[2].day
@@ -62,10 +61,6 @@ class NetworkTest {
             val a4 = doubleOf(window[4].correct)
             val t5 = now - window[5].day
             val a5 = doubleOf(window[5].correct)
-            //vectorOf(t1, t2, t3, t4, t5)
-            //vectorOf(a1, t1 /*, a2, t2, a3, t3, a4, t4, a5, t5 */)
-            //vectorOf(a1, t1, a2, t2, a3, a4, a5)
-            //vectorOf(totalCorrect)
             val result = vectorOf(t1, a1, t2, a2, t3, a3, t4, a4, t5, a5)
             result
         }
@@ -73,7 +68,7 @@ class NetworkTest {
             vectorOf(doubleOf(window[0].correct))
         }
         val data = inputs.zip(answers).toList()
-        network.train(data, 1.0, 5000, 50, reportBoolCost(network, data))
+        network.train(data, 1.0, 500000, 500, reportBoolCost(network, data))
         val cost = costBool(network, data)
         println("Costbool = $cost")
 

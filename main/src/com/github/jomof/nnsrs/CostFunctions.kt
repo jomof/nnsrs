@@ -3,7 +3,7 @@ package com.github.jomof.nnsrs
 fun reportBoolCost(network : Network, trainingData: List<Pair<Vector, Vector>>) : () -> Unit {
     var iteration = 0
     return {
-        if (iteration % 1000 == 0) {
+        if (iteration % 500 == 0) {
             val cost = cost(network, trainingData)
             val costBool = costBool(network, trainingData)
             if (iteration == 0) {

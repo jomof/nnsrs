@@ -23,8 +23,8 @@ import java.util.*
  */
 class Network(
         private val nodeCounts : Array<Int>,
-        private var biases : Matrix,
-        private var weights : Array<Matrix>) {
+        private val biases : Matrix,
+        private val weights : Array<Matrix>) {
 
     private val layerCount: Int = biases.size
     val outputsSize = nodeCounts[nodeCounts.size - 1]
@@ -33,19 +33,28 @@ class Network(
         if (nodeCounts.size - 1 != layerCount) throw RuntimeException("${nodeCounts.size - 1} != $layerCount")
         if (weights.size != layerCount) throw RuntimeException("${weights.size} != $layerCount")
         weights.forEach { weight ->
-            if (!weight.isRectangular()) throw RuntimeException()
+            if (!weight.isRectangular) throw RuntimeException()
         }
     }
 
-    fun train(trainingData : List<Pair<Vector, Vector>>, eta : Double, epochs: Int, batchSize: Int, report : () -> Unit) {
+    fun train(
+            trainingData : List<Pair<Vector, Vector>>,
+            eta : Double,
+            epochs: Int,
+            batchSize: Int,
+            report : () -> Unit) {
         val td = trainingData.toMutableList()
-        val nablaBiases : Matrix = biases.map { biases -> biases.toZeroes() }.toTypedArray()
+        val nablaBiases = biases.map { biases -> biases.toZeroes() }
         val nablaWeights : Array<Matrix> = weights.map { matrix -> matrix.toZeroes() }.toTypedArray()
         report()
         for (i in 0 until epochs) {
             td.shuffle()
-            td.windowed(batchSize, batchSize, true).forEach { batch ->
+            //println("Epoch $i")
+            var w = 0
+            td.windowed(batchSize, batchSize, true) { batch ->
+                //println("  window $w")
                 updateBatch(batch, eta, nablaBiases, nablaWeights)
+                ++w
             }
             report()
         }
@@ -55,8 +64,9 @@ class Network(
         var output = vecToMatrix(a)
         for (i in 0 until layerCount) {
             val wa = weights[i] dot output
-            wa.plusAssign(biases[i])
-            output = wa.sigmoid()
+            wa += biases[i]
+            wa.assignInto { value -> sigmoid(value) }
+            output = wa
         }
         return matrixToVec(output)
     }
@@ -66,88 +76,99 @@ class Network(
             eta: Double,
             nablaBiases: Matrix,
             nablaWeights: Array<Matrix>) {
-        val inputs = trainingData.map { it.first }
-        val outputs = trainingData.map { it.second }
 
-        inputs.zip(outputs).forEach { (input, output) ->
+        trainingData.forEach { (input, output) ->
             backPropagate(input, output, nablaBiases, nablaWeights)
-            nablaBiases.plusAssign(nablaBiases)
-            nablaWeights.zip(nablaWeights).onEach { (nw, dnw) -> nw.plusAssign(dnw) }
         }
 
-        val etaFraction = eta/inputs.size
-        val newW = weights.zip(nablaWeights).map{ (w,nw) ->
-            val t = nw times etaFraction
-            val result = w minus t
-            result
-        }.toTypedArray()
-
-        val newB = biases.zip(nablaBiases).map { (b, nb) ->
-            b minus (nb times etaFraction)
-        }.toTypedArray()
-
-        weights = newW
-        biases = newB
+        val etaFraction = eta/trainingData.size
+        (0 until weights.size).forEach { i ->
+            val nw = nablaWeights[i]
+            nw *= etaFraction
+            weights[i] -= nw
+        }
+        (0 until biases.size).onEach { i ->
+            val nb = nablaBiases[i]
+            nb *= etaFraction
+            biases[i] -= nb
+        }
     }
 
     private fun backPropagate(
-            a_activation: Vector,
-            a_output: Vector,
+            activation: Vector,
+            output: Vector,
             nablaBiases: Matrix,
             nablaWeights: Array<Matrix>) {
-        nablaBiases.clear()
-        nablaWeights.forEach { matrix -> matrix.clear() }
-        val activation : Vector = a_activation
-        val y : Vector = a_output
+        nablaBiases *= 0.0
+        nablaWeights.forEach { matrix -> matrix *= 0.0 }
 
-        val activations : Matrix= matrix(nodeCounts.size, 0)
-        val inputs : Matrix= matrix(layerCount, 0)
-        activations[0] = activation
-
-        var output : Matrix= vecToMatrix(activation)
+        val activations = Array<Matrix?>(layerCount + 1) { null }
+        val inputs = Matrix(layerCount) { vectorOf() }
+        activations[0] = vecToMatrix(activation)
 
         for (i in 0 until layerCount) {
-            val wa = weights[i] dot output
-            wa.plusAssign(biases[i])
-            inputs[i] = matrixToVec(wa)
-            output = wa.sigmoid()
-            activations[i + 1] = matrixToVec(output)
+            val wa = weights[i] dot activations[i]!!
+            wa += biases[i]
+            inputs[i] = sigmoidPrime(wa)
+            wa.assignInto { _, _, value -> sigmoid(value) }
+            activations[i + 1] = wa
         }
 
         //compute error of last layer
-        var delta = activations[activations.size - 1] minus y
-
-        delta = delta hadamard sigmoidPrime(inputs[inputs.size - 1])
-        nablaBiases[nablaBiases.size - 1] = delta.copyOf()
-        nablaWeights[nablaWeights.size - 1] = vecToMatrix(delta) dot vecToMatrix(activations[activations.size - 2]).transpose()
+        var delta = matrixToVec(activations[activations.size - 1]!!)
+        delta -= output
+        delta *= inputs[inputs.size - 1]
+        nablaBiases[nablaBiases.size - 1] = delta
+        mult(nablaWeights[nablaWeights.size - 1], delta, activations[activations.size - 2]!!)
 
         for (L in 2 until nodeCounts.size) {
-            val z = inputs[inputs.size - L]
-            val sp = sigmoidPrime(z)
-            val transposed = weights[weights.size - L + 1].transpose()
+            delta = updateDelta(
+                    delta,
+                    weights[weights.size - L + 1],
+                    inputs[inputs.size - L])
 
-            delta = matrixToVec(transposed dot delta)
-            delta = delta hadamard sp
-
-            nablaBiases[nablaBiases.size - L] = delta.copyOf()
-            nablaWeights[nablaWeights.size - L] = vecToMatrix(delta) dot vecToMatrix(activations[activations.size - L - 1]).transpose()
+            nablaBiases[nablaBiases.size - L] = delta
+            mult(nablaWeights[nablaWeights.size - L], delta, activations[activations.size - L - 1]!!)
         }
     }
 
-    private fun sigmoidPrime(z : Vector) : Vector {
-        val a = z.map { sigmoid(it) }
-        val b = (a times -1.0) plus 1.0
-        return a hadamard b
+    private fun mult(weights : Matrix, delta: Vector, right: Matrix) {
+        for (i in 0 until delta.size) {
+            val vec = weights[i]
+            for (j in 0 until right.height) {
+                vec[j] = delta[i] * right[j][0]
+            }
+        }
+    }
+
+    fun updateDelta(delta : Vector, weights : Matrix, sp : Vector) : Vector {
+        return Vector(DoubleArray(weights.width) { i ->
+            var sum = 0.0
+            for (k in 0 until weights.height) {
+                sum += weights[k][i] * delta[k]
+            }
+            sum * sp[i]
+        })
+    }
+
+    private fun sigmoidPrime(z : Matrix) : Vector {
+        return Vector(DoubleArray(z.size) { i ->
+            val s = sigmoid(z[i][0])
+            s * (1.0 - s)
+        })
     }
 
     companion object {
         fun fromNodeCounts(nodeCounts : Array<Int>) : Network {
             val layerCount = nodeCounts.size - 1
             val random = Random()
-            val biases = (0 until layerCount).map { Vector(nodeCounts[it + 1]) { random.nextGaussian() } }.toTypedArray()
-            val weights = (0 until layerCount).map { matrix(nodeCounts[it + 1], nodeCounts[it]) { _,_ -> random.nextGaussian() }}.toTypedArray()
-            return Network(nodeCounts, biases, weights)
+            val biases = Matrix(layerCount) {layer ->
+                Vector(DoubleArray(nodeCounts[layer + 1]) { random.nextGaussian() })
+            }
 
+            val weights = (0 until layerCount).map { Matrix(nodeCounts[it + 1], nodeCounts[it]) { _,_ -> random.nextGaussian() }}.toTypedArray()
+            return Network(nodeCounts, biases, weights)
         }
     }
 }
+

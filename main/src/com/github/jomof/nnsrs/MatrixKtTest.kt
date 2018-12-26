@@ -23,7 +23,7 @@ class MatrixKtTest {
             0.20 0.40
             0.30 0.30
         """.trimIndent().toMatrix()
-        assert(matrix.isRectangular())
+        assert(matrix.isRectangular)
     }
 
     @Test
@@ -34,6 +34,6 @@ class MatrixKtTest {
             0.20 0.40
             0.30 0.30
         """.trimIndent().toMatrix()
-        assert(!matrix.isRectangular())
+        assert(!matrix.isRectangular)
     }
 }
