@@ -1,9 +1,11 @@
 package com.github.jomof.nnsrs
 
-import org.joda.time.DateTime
 import org.junit.Test
+import java.io.File
+import java.net.URL
 
 class WaniKaniKtTest {
+    val reviewsFile = File("data/wanikani/reviews.txt")
 
     @Test
     fun user() {
@@ -13,13 +15,25 @@ class WaniKaniKtTest {
 
     @Test
     fun reviews() {
-        val reviews = wanikaniReviews()
-        println(reviews.data.filter { it.data.subjectId == 536 })
+        reviewsFile.parentFile.mkdirs()
+        println(reviewsFile.absoluteFile)
+        var reviews = wanikaniReviews()
+        val result = mutableListOf<Review>()
+        do {
+            result.addAll(reviews.data)
+            if (reviews.pages.nextUrl == null) break
+            reviews = wanikaniReviews(URL(reviews.pages.nextUrl))
+        } while (true)
+        writeJson(result, reviewsFile)
+        val rt = readJson(reviewsFile, Array<Review>::class.java)
+
+        println(reviews.data.asSequence().filter { it.data.assignmentId == 76351697 }.sortedBy { it.dataUpdatedAt }.toList())
     }
 
     @Test
-    fun parseDateTime() {
-        val dt = DateTime("2018-12-29T17:08:34.578186Z")
-        //println(dt)
+    fun assignments() {
+        val assignments = wanikaniAssignments()
+        println(assignments.data.asSequence().filter { it.id == 76351697 }.sortedBy { it.dataUpdatedAt }.toList())
     }
+
 }
