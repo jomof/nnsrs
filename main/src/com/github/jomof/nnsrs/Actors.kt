@@ -58,7 +58,7 @@ class DumbActor {
 }
 
 fun sampleDumbActorInteraction(): Sequence<Interaction> {
-    val itemCount = 100
+    val itemCount = 10
     val chanceOfCorrectGuess = 0.5
     val maxInteractions = 200000000
     val itemBatches = 10 * 3
@@ -77,7 +77,16 @@ fun sampleDumbActorInteraction(): Sequence<Interaction> {
                 }
             }
         }
-    }.flatten().flatten()
+    }
+            .flatten()
+            .flatten()
+            .windowed(2)
+            .filter { windows ->
+                val first = windows[0]
+                val second = windows[1]
+                first.item != second.item || first.day != second.day
+            }
+            .map { it[0] }
     return result
 }
 

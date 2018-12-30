@@ -18,5 +18,9 @@
         <SOURCES />
       </library>
     </orderEntry>
+    <orderEntry type="library" name="org.xerial:sqlite-jdbc:3.25.2" level="application" />
+    <orderEntry type="library" name="org.tensorflow:tensorflow:1.11.0" level="application" />
+    <orderEntry type="library" name="com.google.code.gson:gson:2.8.5" level="application" />
+    <orderEntry type="library" name="joda-time:joda-time:2.10.1" level="application" />
   </component>
 </module>
