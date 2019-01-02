@@ -6,6 +6,7 @@ import java.net.URL
 
 class WaniKaniKtTest {
     val reviewsFile = File("data/wanikani/reviews.txt")
+    val subjectsFile = File("data/wanikani/subjects.txt")
 
     @Test
     fun user() {
@@ -38,6 +39,16 @@ class WaniKaniKtTest {
         println(assignments.data.asSequence().filter { it.id == 76351697 }.sortedBy { it.dataUpdatedAt }.toList())
     }
 
+    @Test
+    fun subjects() {
+        if (!subjectsFile.exists()) {
+            subjectsFile.parentFile.mkdirs()
+            println(subjectsFile.absoluteFile)
+            val subjects = wanikaniSubjects().asSequence().flatten().filter { it.id == 7739 }. toList()
+            writeJson(subjects, subjectsFile)
+        }
+    }
+
     data class Denormalized(
             val output : Long,
             val answers : List<Long>,
@@ -58,7 +69,7 @@ class WaniKaniKtTest {
 
     @Test
     fun windowedReviews() {
-        val fullsize = 5
+        val fullsize = 8
         fun padToFullSize(list : List<Long>, with : Long = 0L) : List<Long> {
             return list + (0 until fullsize - list.size - 1).map { with }
         }

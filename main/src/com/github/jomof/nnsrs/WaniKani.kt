@@ -10,7 +10,12 @@ import java.net.HttpURLConnection
 import java.net.URL
 import com.google.gson.GsonBuilder
 import org.joda.time.DateTimeZone
+import java.net.MalformedURLException
 
+interface WaniKaniCollection<T> {
+    val pages : Pages
+    val data : List<T>
+}
 
 data class UserData(
         val id : String,
@@ -82,11 +87,11 @@ data class Review(
 data class Reviews(
         val `object` : String,
         val url : String,
-        val pages : Pages,
+        override val pages : Pages,
         val totalCount : Int,
         val dataUpdatedAt : DateTime,
-        val data : List<Review>
-) {
+        override val data : List<Review>
+) : WaniKaniCollection<Review> {
     override fun toString() : String = gb.toJson(this)
 }
 
@@ -128,11 +133,63 @@ data class Assignment(
 data class Assignments(
         val `object` : String,
         val url : String,
-        val pages : Pages,
+        override val pages : Pages,
         val totalCount : Int,
         val dataUpdatedAt : DateTime,
-        val data : List<Assignment>
-) {
+        override val data : List<Assignment>
+) : WaniKaniCollection<Assignment> {
+    override fun toString() : String = gb.toJson(this)
+}
+
+data class Metadata(
+        val color : String,
+        val dimensions : String,
+        val styleName : String
+)
+
+data class Image(
+        val url : String,
+        val metadata : Metadata,
+        val contentType : String
+)
+
+data class Meaning(
+        val meaning : String,
+        val primary : Boolean,
+        val acceptedAnswer : Boolean
+)
+
+data class SubjectData(
+        val createdAt: DateTime,
+        val level : Int,
+        val slug : String,
+        val hiddenAt : DateTime?,
+        val documentUrl : String,
+        val characters : String,
+        val characterImages : List<Image>,
+        val meanings : List<Meaning>,
+        val auxiliaryMeanings : List<Meaning>,
+        val amalgamationSubjectIds : List<Int>
+)
+
+data class Subject(
+        val id : Int,
+        val `object` : String,
+        val url : String,
+        val dataUpdatedAt: DateTime,
+        val data : SubjectData
+
+
+)
+
+data class Subjects(
+        val `object` : String,
+        val url : String,
+        override val pages : Pages,
+        val totalCount : Int,
+        val dataUpdatedAt : DateTime,
+        override val data : List<Subject>
+) : WaniKaniCollection<Subject> {
     override fun toString() : String = gb.toJson(this)
 }
 
@@ -144,7 +201,7 @@ fun urlOf(url : String) = URL("https://api.wanikani.com/v2/$url")
 fun request(obj: URL): String {
     val connection = obj.openConnection() as HttpURLConnection
     connection.requestMethod = "GET"
-    connection.doOutput = true;
+    connection.doOutput = true
     connection.setRequestProperty("Content-Type", "application/json")
     connection.setRequestProperty("Authorization", "Bearer $key")
 
@@ -226,4 +283,29 @@ fun <T> readJson(file : File, type : Class<T>) : T {
 
 fun wanikaniUser() = deserialize(request(urlOf("user")), User::class.java)
 fun wanikaniReviews(url : URL = urlOf("reviews")) = deserialize(request(url), Reviews::class.java)
+fun wanikaniSubjects(url : URL = urlOf("subjects")) = deserialize(request(url), Subjects::class.java)
 fun wanikaniAssignments() = deserialize(request(urlOf("assignments")), Assignments::class.java)
+
+fun <T> WaniKaniCollection<T>.asSequence() : Sequence<List<T>> {
+    var next : WaniKaniCollection<T>? = this
+    return generateSequence {
+        when (next) {
+            null ->
+                null
+            else -> {
+                val data = next!!.data
+                next = if (next!!.pages.nextUrl != null) {
+                    val url = try {
+                        URL(next!!.pages.nextUrl)
+                    } catch (e : MalformedURLException) {
+                        throw RuntimeException(next!!.pages.nextUrl)
+                    }
+                    deserialize(request(url), javaClass)
+                } else {
+                    null
+                }
+                data
+            }
+        }
+    }
+}
